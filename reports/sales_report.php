@@ -1,63 +1,32 @@
-<?php
-include("../config/db.php");
-include("../includes/layout.php");
-
-// FILTER
-$from = $_GET['from'] ?? date('Y-m-01');
-$to = $_GET['to'] ?? date('Y-m-d');
-
-// QUERY
-$data = $conn->query("
-SELECT s.*, c.Name,
-       IFNULL(SUM(p.AmountPaid),0) as PaidAmount
-FROM sales s
-LEFT JOIN customers c ON s.CustomerID=c.CustomerID
-LEFT JOIN payments p ON s.SaleID=p.SaleID
-WHERE s.SaleDate BETWEEN '$from' AND '$to'
-GROUP BY s.SaleID
-")->fetchAll();
-
-// TOTALS
-$totalSales = 0;
-$totalPaid = 0;
-
-foreach($data as $d){
-    $totalSales += $d['TotalAmount'];
-    $totalPaid += $d['PaidAmount'];
-}
-
-$balance = $totalSales - $totalPaid;
-?>
+<?php include("../includes/layout.php"); ?>
 
 <div class="container mt-4">
 
-<h3>📊 Sales Report</h3>
-
-<form class="row mb-3">
-<div class="col-md-3">
-<input type="date" name="from" value="<?= $from ?>" class="form-control">
-</div>
-<div class="col-md-3">
-<input type="date" name="to" value="<?= $to ?>" class="form-control">
-</div>
-<div class="col-md-3">
-<button class="btn btn-primary">Filter</button>
-</div>
-</form>
-
-<div class="row text-center mb-4">
-<div class="col-md-4">
-<div class="alert alert-dark">Total Sales<br><?= number_format($totalSales,2) ?></div>
-</div>
-<div class="col-md-4">
-<div class="alert alert-success">Total Paid<br><?= number_format($totalPaid,2) ?></div>
-</div>
-<div class="col-md-4">
-<div class="alert alert-warning">Balance<br><?= number_format($balance,2) ?></div>
-</div>
+<div class="card shadow">
+<div class="card-header bg-dark text-white">
+    <h4>📊 Sales Report</h4>
 </div>
 
-<table class="table table-bordered" id="reportTable">
+<div class="card-body">
+<div class="row mb-3">
+    <div class="col-md-3">
+        <label>From</label>
+        <input type="date" id="from" class="form-control">
+    </div>
+
+    <div class="col-md-3">
+        <label>To</label>
+        <input type="date" id="to" class="form-control">
+    </div>
+
+    <div class="col-md-3 d-flex align-items-end">
+        <button id="filterBtn" class="btn btn-primary w-100">
+            <i class="fas fa-filter"></i> Filter
+        </button>
+    </div>
+</div>
+<table id="salesTable" class="table table-bordered table-striped">
+
 <thead class="table-dark">
 <tr>
 <th>ID</th>
@@ -70,26 +39,76 @@ $balance = $totalSales - $totalPaid;
 </tr>
 </thead>
 
-<tbody>
-<?php foreach($data as $d): ?>
+<tfoot>
 <tr>
-<td><?= $d['SaleID'] ?></td>
-<td><?= $d['Name'] ?></td>
-<td><?= number_format($d['TotalAmount'],2) ?></td>
-<td><?= number_format($d['PaidAmount'],2) ?></td>
-<td><?= number_format($d['TotalAmount'] - $d['PaidAmount'],2) ?></td>
-<td><?= $d['PaymentStatus'] ?></td>
-<td><?= $d['SaleDate'] ?></td>
+<th colspan="2">TOTAL</th>
+<th id="totalSales"></th>
+<th id="totalPaid"></th>
+<th id="totalBalance"></th>
+<th colspan="2"></th>
 </tr>
-<?php endforeach; ?>
-</tbody>
+</tfoot>
+
 </table>
+
+</div>
+</div>
 
 </div>
 
 <script>
 $(document).ready(function(){
-    $('#reportTable').DataTable();
+
+let table = $('#salesTable').DataTable({
+
+    processing: true,
+    serverSide: true,
+
+    ajax: {
+        url: 'sales_data.php',
+        type: 'POST',
+        data: function(d){
+            d.from = $('#from').val();
+            d.to   = $('#to').val();
+        }
+    },
+
+    columns: [
+        { data: 'SaleID' },
+        { data: 'Name' },
+        { data: 'TotalAmount' },
+        { data: 'PaidAmount' },
+        { data: 'Balance' },
+        { data: 'PaymentStatus' },
+        { data: 'SaleDate' }
+    ],
+
+    dom: 'Blfrtip',
+
+    lengthMenu: [
+        [10,25,50,100,500,1000],
+        [10,25,50,100,500,1000]
+    ],
+
+    buttons: ['excel','pdf'],
+
+    drawCallback: function(settings){
+        let json = settings.json;
+
+        if(json){
+            $('#totalSales').html(json.totalSales);
+            $('#totalPaid').html(json.totalPaid);
+            $('#totalBalance').html(json.totalBalance);
+        }
+    }
+
+});
+
+// FILTER BUTTON
+$('#filterBtn').click(function(){
+    table.ajax.reload();
+});
+
 });
 </script>
 
