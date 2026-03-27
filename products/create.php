@@ -1,4 +1,5 @@
 <?php
+ob_start();
 include("../config/db.php");
 include("../includes/layout.php");
 
@@ -30,16 +31,29 @@ if ($_POST) {
 
                 <div class="mb-3">
                     <label>Name</label>
-                    <select name="Name" id="">
-                        <option value="Honey Jar">Honey Jar</option>
-                        <option value="Honey Bottle">Honey Bottle</option>
-                        <option value="Honey Comb">Honey Comb</option>
+                    <select name="Name" id="" class="form-control">
+                        <option value="Glass">Glass</option>
+                        <option value="Plastic">Plastic</option>
+                        <option value="Single use">Single use</option>
                     </select>
                 </div>
 
                 <div class="mb-3">
                     <label>Size (e.g 250ml, 500g)</label>
-                    <input type="text" name="Size" class="form-control" required>
+                    <select name="Size" id="" class="form-control">
+                        <option value="60g">60g</option>
+                        <option value="80g">80g</option>
+                        <option value="120g">120g</option>
+                        <option value="150g">150g</option>
+                        <option value="250g">250g</option>
+                        <option value="500g">500g</option>
+                        <option value="1kg">1kg</option>
+                        <option value="1.5kg">1.5kg</option>
+                        <option value="3kg">3kg</option>
+                        <option value="4kg">4kg</option>
+                        <option value="7kg">7kg</option>
+                        <option value="31kg">31kg</option>
+                    </select>
                 </div>
 
                 <div class="mb-3">

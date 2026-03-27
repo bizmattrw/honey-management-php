@@ -12,8 +12,8 @@ $products = $conn->query("SELECT * FROM products")->fetchAll();
         <a href="create.php" class="btn btn-primary">+ Add Product</a>
     </div>
 
-    <table id="productsTable" class="table table-bordered table-striped">
-        <thead>
+    <table id="productsTable" class="table table-bordered table-striped table-hover">
+        <thead class="table-dark">
             <tr>
                 <th>ID</th>
                 <th>Name</th>
