@@ -150,6 +150,12 @@ body {
                     <li><a class="dropdown-item" href="<?= $base ?>reports/payment_report.php">
                         💰 Payment Report
                     </a></li>
+                    <li><a class="dropdown-item" href="<?= $base ?>reports/expenses_report.php">
+                         💸Expenses Report
+                    </a></li>
+                    <li><a class="dropdown-item" href="<?= $base ?>reports/profit_report.php">
+                         📊 Profit Report
+                    </a></li>
 
                 </ul>
             </li>

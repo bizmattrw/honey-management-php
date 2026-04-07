@@ -1,85 +1,103 @@
-<?php
-include("../../config/db.php");
-include("../../includes/layout.php");
-
-// FETCH STOCKS
-$processed = $conn->query("SELECT QuantityAvailableKg FROM processedhoneystock LIMIT 1")->fetch();
-
-// FETCH PACKAGING DATA WITH PRODUCT NAME
-$data = $conn->query("
-    SELECT p.*, pr.Name, pr.Size
-    FROM packaging p
-    LEFT JOIN products pr ON p.ProductID = pr.ProductID
-")->fetchAll();
+<?php 
+ob_start();
+include("../../includes/layout.php"); 
+include("../../config/db.php"); 
 ?>
 
 <div class="container mt-4">
 
-    <div class="d-flex justify-content-between mb-3">
-        <h3>📦 Packaging Records</h3>
-        <a href="create.php" class="btn btn-primary">+ New Packaging</a>
-    </div>
+<div class="card shadow-lg border-0">
 
-    <!-- STOCK INFO -->
-    <div class="alert alert-info">
-        Available Processed Stock: <strong><?= $processed['QuantityAvailableKg'] ?> Kg</strong>
-    </div>
+<div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+    <h5 class="mb-0">📦 Packaging Records</h5>
 
-    <div class="card shadow rounded-4">
-        <div class="card-body">
+    <!-- ✅ ADD NEW BUTTON -->
+    <a href="create.php" class="btn btn-success">
+        ➕ Add Packaging
+    </a>
+</div>
 
-            <table id="packagingTable" class="table table-bordered table-hover">
-                <thead class="table-dark">
-                    <tr>
-                        <th>#</th>
-                        <th>Product</th>
-                        <th>Size</th>
-                        <th>Processed (Kg)</th>
-                        <th>Units</th>
-                        <th>Date</th>
-                       
-                        <th>Action</th>
-                    </tr>
-                </thead>
+<div class="card-body">
 
-                <tbody>
-                    <?php $i=0; foreach ($data as $d): ?>
-                    <tr><?php $i++; ?>
-                        <td><?= $i?></td>
-                        <td><?= $d['Name'] ?></td>
-                        <td><?= $d['Size'] ?></td>
-                        <td><?= $d['ProcessedUsedKg'] ?></td>
-                        <td><?= $d['QuantityProduced'] ?></td>
-                        <td><?= $d['PackagingDate'] ?></td>
-                        
-                        <td>
-                            <a href="edit.php?id=<?= $d['PackagingID'] ?>" 
-                               class="btn btn-warning btn-sm">✏️</a>
+<table id="table" class="table table-bordered table-striped">
 
-                            <a href="delete.php?id=<?= $d['PackagingID'] ?>" 
-                               class="btn btn-danger btn-sm"
-                               onclick="return confirm('Delete this record?')">
-                               🗑️ 
-                            </a>
-                        </td>
-                    </tr>
-                    <?php endforeach; ?>
-                </tbody>
+<thead class="table-dark">
+<tr>
+    <th>Batch No</th>
+    <th>Product</th>
+    <th>Size</th>
+    <th>Quantity</th>
+    <th>Used (Kg)</th>
+    <th>Date</th>
+    <th>Action</th>
+</tr>
+</thead>
 
-            </table>
+<tbody>
 
-        </div>
-    </div>
+<?php
+$sql = "
+SELECT 
+    p.PackagingID,
+    p.BatchNo,   -- ✅ IMPORTANT FIX
+    p.QuantityProduced,
+    p.ProcessedUsedKg,
+    p.PackagingDate,
+    pr.Name,
+    pr.Size
+FROM packaging p
+JOIN products pr ON p.ProductID = pr.ProductID
+ORDER BY p.PackagingDate DESC
+";
 
+$stmt = $conn->prepare($sql);
+$stmt->execute();
+
+foreach($stmt->fetchAll(PDO::FETCH_ASSOC) as $row):
+?>
+
+<tr>
+    <!-- ✅ BATCHNO FIX -->
+    <td><?= $row['BatchNo'] ?></td>
+
+    <td><?= $row['Name'] ?></td>
+    <td><?= $row['Size'] ?></td>
+    <td><?= $row['QuantityProduced'] ?></td>
+    <td><?= number_format($row['ProcessedUsedKg'],2) ?></td>
+    <td><?= $row['PackagingDate'] ?></td>
+
+    <td>
+        <a href="edit.php?id=<?= $row['PackagingID'] ?>" class="btn btn-warning btn-sm">
+            ✏️ Edit
+        </a>
+
+        <a href="delete.php?id=<?= $row['PackagingID'] ?>" 
+           class="btn btn-danger btn-sm"
+           onclick="return confirm('Delete this record?')">
+            🗑 Delete
+        </a>
+    </td>
+</tr>
+
+<?php endforeach; ?>
+
+</tbody>
+
+</table>
+
+</div>
+</div>
 </div>
 
 <!-- DATATABLE -->
 <script>
-$(document).ready(function () {
-    $('#packagingTable').DataTable({
-        pageLength: 5,
-        lengthMenu: [5, 10, 25, 50],
-        order: [[0, "desc"]]
+$(document).ready(function(){
+    $('#table').DataTable({
+        pageLength: 10,
+        lengthMenu: [
+            [10, 100, 500, 1000, -1],
+            [10, 100, 500, 1000, "All"]
+        ]
     });
 });
 </script>

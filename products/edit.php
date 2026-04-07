@@ -52,10 +52,12 @@ if ($_POST) {
                      <select name="Size" id="" class="form-control">
                         <option value="<?= $product['Size'] ?>"><?php echo"$product[Size]"; ?></option>
                         <option value="60g">60g</option>
+                        <option value="50g">50g</option>
                         <option value="80g">80g</option>
                         <option value="120g">120g</option>
                         <option value="150g">150g</option>
                         <option value="250g">250g</option>
+                        <option value="300g">300g</option>
                         <option value="500g">500g</option>
                         <option value="1kg">1kg</option>
                         <option value="1.5kg">1.5kg</option>

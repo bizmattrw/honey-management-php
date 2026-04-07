@@ -1,34 +1,50 @@
 <?php
+
 include("../../config/db.php");
 
 $id = $_GET['id'];
 
-// GET OLD RECORD
+/* GET RECORD */
 $stmt = $conn->prepare("SELECT * FROM packaging WHERE PackagingID=?");
 $stmt->execute([$id]);
-$row = $stmt->fetch();
+$data = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if ($row) {
-
-    $productId = $row['ProductID'];
-    $units = $row['QuantityProduced'];
-    $processed = $row['ProcessedUsedKg'];
-
-    // DELETE RECORD
-    $conn->prepare("DELETE FROM packaging WHERE PackagingID=?")->execute([$id]);
-
-    // RESTORE PROCESSED STOCK
-    $conn->prepare("
-        UPDATE processedhoneystock 
-        SET QuantityAvailableKg = QuantityAvailableKg + ?
-    ")->execute([$processed]);
-
-    // REDUCE INVENTORY
-    $conn->prepare("
-        UPDATE inventory 
-        SET QuantityAvailable = QuantityAvailable - ?
-        WHERE ProductID=?
-    ")->execute([$units, $productId]);
+if(!$data){
+    header("Location:index.php");
+    exit;
 }
 
-header("Location: index.php");
+$batch = $data['BatchNo'];
+$product = $data['ProductID'];
+$qty = $data['QuantityProduced'];
+$used = $data['ProcessedUsedKg'];
+
+try{
+
+$conn->beginTransaction();
+
+/* RESTORE PROCESSED STOCK */
+$conn->prepare("
+UPDATE processedhoneystock
+SET QuantityAvailableKg = QuantityAvailableKg + ?
+WHERE BatchNo=?
+")->execute([$used, $batch]);
+
+/* REDUCE INVENTORY */
+$conn->prepare("
+UPDATE inventory
+SET QuantityAvailable = QuantityAvailable - ?
+WHERE BatchNo=? AND ProductID=?
+")->execute([$qty, $batch, $product]);
+
+/* DELETE RECORD */
+$conn->prepare("DELETE FROM packaging WHERE PackagingID=?")
+     ->execute([$id]);
+
+$conn->commit();
+
+}catch(Exception $e){
+$conn->rollBack();
+}
+
+header("Location:index.php");

@@ -50,6 +50,7 @@ $balance = $sale['TotalAmount'] - $totalPaid;
 <thead class="table-dark">
 <tr>
 <th>Product</th>
+<th>BatchNo</th>
 <th>Qty</th>
 <th>Price</th>
 <th>Total</th>
@@ -59,6 +60,7 @@ $balance = $sale['TotalAmount'] - $totalPaid;
 <?php foreach($items as $i): ?>
 <tr>
 <td><?= $i['Name'] ?> (<?= $i['Size'] ?>)</td>
+<td><?= $i['BatchNo'] ?> </td>
 <td><?= $i['Quantity'] ?></td>
 <td><?= number_format($i['UnitPrice'],2) ?></td>
 <td><?= number_format($i['TotalPrice'],2) ?></td>

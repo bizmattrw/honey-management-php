@@ -76,6 +76,14 @@ $base = "/honey-management-php/";
             </a>
         </li>
 
+        <!-- SALES -->
+        <li class="nav-item">
+            <a class="nav-link text-white <?= strpos($current_url, 'expenses') ? 'bg-secondary rounded' : '' ?>" 
+               href="<?= $base ?>expenses/index.php">
+                <i class="fas fa-shopping-cart"></i> <span class="text"> Expenses</span>
+            </a>
+        </li>
+
     </ul>
 </div>
 

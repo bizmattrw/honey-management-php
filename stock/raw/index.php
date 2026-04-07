@@ -3,11 +3,16 @@ include("../../config/db.php");
 include("../../includes/layout.php");
 
 // GET STOCK
-$stock = $conn->query("SELECT * FROM rawhoneystock LIMIT 1")->fetch();
+try {
+    $stock = $conn->query("SELECT sum(QuantityAvailableKg) as QuantityAvailableKg FROM rawhoneystock")->fetch();
+} catch (Exception $e) {
+    echo "Error fetching stock: " . $e->getMessage(); // Default to 0 if query fails
+}
+$stock = $conn->query("SELECT sum(QuantityAvailableKg) as  QuantityAvailableKg  FROM rawhoneystock limit 1")->fetch();
 
 // GET RECORDS
-$stmt = $conn->query("
-    SELECT r.*, s.Name 
+$stmt = $conn->query(
+    "SELECT r.*, s.Name 
     FROM rawhoney r
     LEFT JOIN suppliers s ON r.SupplierID = s.SupplierID
 ");

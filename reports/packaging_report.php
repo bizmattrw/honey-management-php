@@ -23,8 +23,9 @@
 <tr>
     <th>Product</th>
     <th>Size</th>
+    <th>BatchNo</th>
     <th>Qty Produced</th>
-    <th>Processed Used</th>
+    <th>Qty Packaged</th>
     <th>Date</th>
 </tr>
 </thead>
@@ -62,6 +63,7 @@ let table = $('#table').DataTable({
     columns: [
         { data: 'Product' },
         { data: 'Size' },   // ✅ NEW
+        { data: 'BatchNo' },   // ✅ NEW
         { data: 'Qty' },
         { data: 'Used' },
         { data: 'Date' }

@@ -7,7 +7,10 @@ include("../../includes/layout.php");
 $suppliers = $conn->query("SELECT * FROM suppliers")->fetchAll();
 
 if ($_POST) {
-
+function generateBatchNo($rawID, $supplierID){
+    $date = date("Ymd");
+    return $rawID . "SM" . $date . $supplierID;
+}
     $qty = $_POST['QuantityKg'];
     $price = $_POST['price'];
     $total = $qty * $price;
@@ -25,12 +28,24 @@ if ($_POST) {
         $total,
         $_POST['DateReceived']
     ]);
+$rawID = $conn->lastInsertId();
 
+/* GENERATE BATCH */
+$batchNo = generateBatchNo($rawID, $_POST['supplierID']);
+
+/* UPDATE RECORD WITH BATCH */
+$conn->prepare("UPDATE rawhoney SET BatchNo=? WHERE RawHoneyID=?")
+     ->execute([$batchNo, $rawID]);
     // UPDATE STOCK
-    $conn->prepare("
-        UPDATE rawhoneystock 
-        SET QuantityAvailableKg = QuantityAvailableKg + ?
-    ")->execute([$qty]);
+    // $conn->prepare("
+    //     UPDATE rawhoneystock 
+    //     SET QuantityAvailableKg = QuantityAvailableKg + ?
+    // ")->execute([$qty]);
+/* INSERT INTO STOCK */
+$conn->prepare("
+INSERT INTO rawhoneystock (BatchNo, QuantityAvailableKg)
+VALUES (?, ?)
+")->execute([$batchNo, $qty]);
 
     header("Location: index.php");
 }

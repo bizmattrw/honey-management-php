@@ -1,177 +1,200 @@
-<?php
+<?php 
 ob_start();
-include("../../config/db.php");
-include("../../includes/layout.php");
+include("../../includes/layout.php"); 
+include("../../config/db.php"); 
 
-// GET RAW STOCK
-$stock = $conn->query("SELECT QuantityAvailableKg FROM rawhoneystock LIMIT 1")->fetch();
-$availableStock = $stock['QuantityAvailableKg'];
-
-if ($_POST) {
-
-    $input = $_POST['InputQuantityKg'];
-    $output = $_POST['OutputQuantityKg'];
-
-    $errors = [];
-
-    // SERVER VALIDATION
-    if ($input > $availableStock) {
-        $errors[] = "Raw quantity exceeds available stock!";
-    }
-
-    if ($output > $input) {
-        $errors[] = "Processed quantity cannot be greater than raw used!";
-    }
-
-    if ($input <= 0 || $output <= 0) {
-        $errors[] = "Quantities must be greater than zero!";
-    }
-
-    if (count($errors) == 0) {
-
-        // INSERT PROCESSING BATCH
-        $stmt = $conn->prepare("
-            INSERT INTO processingbatch
-            (InputQuantityKg, OutputQuantityKg, ProcessingDate, Status)
-            VALUES (?,?,?,?)
-        ");
-
-        $stmt->execute([
-            $input,
-            $output,
-            $_POST['ProcessingDate'],
-            $_POST['Status']
-        ]);
-
-        // UPDATE RAW STOCK
-        $conn->prepare("
-            UPDATE rawhoneystock 
-            SET QuantityAvailableKg = QuantityAvailableKg - ?
-        ")->execute([$input]);
-
-        // UPDATE PROCESSED STOCK
-        $conn->prepare("
-            UPDATE processedhoneystock 
-            SET QuantityAvailableKg = QuantityAvailableKg + ?
-        ")->execute([$output]);
-
-        echo "<div class='alert alert-success'>Processing recorded successfully!</div>";
-
-    } else {
-        foreach ($errors as $err) {
-            echo "<div class='alert alert-danger'>$err</div>";
-        }
-    }
-}
+/* FETCH AVAILABLE BATCHES */
+$stmt = $conn->prepare("
+SELECT BatchNo, QuantityAvailableKg 
+FROM rawhoneystock 
+WHERE QuantityAvailableKg > 0
+");
+$stmt->execute();
+$batches = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
 <div class="container mt-4">
 
-    <div class="card shadow-lg border-0 rounded-4">
-        <div class="card-header bg-dark text-white">
-            <h4 class="mb-0">⚙️ Process Raw Honey</h4>
-        </div>
+<div class="card shadow-lg">
+<div class="card-header bg-success text-white">
+    <h5>⚙️ Process Honey (Batch Based)</h5>
+</div>
 
-        <div class="card-body">
+<div class="card-body">
 
-            <form method="POST">
+<form method="POST" id="form">
 
-                <!-- Raw Input -->
-                <div class="mb-3">
-                    <label class="form-label fw-bold">Raw Honey Used (Kg)</label>
-                    <input type="number" step="0.01" name="InputQuantityKg" id="inputQty"
-                        class="form-control" required>
-                    <small id="rawError" class="text-danger"></small>
-                </div>
+<div class="row">
 
-                <!-- Processed Output -->
-                <div class="mb-3">
-                    <label class="form-label fw-bold">Processed Honey Produced (Kg)</label>
-                    <input type="number" step="0.01" name="OutputQuantityKg" id="outputQty"
-                        class="form-control" required>
-                    <small id="processedError" class="text-danger"></small>
-                </div>
+<!-- BATCH -->
+<div class="col-md-6 mb-3">
+<label>Batch No</label>
+<select name="batch" id="batch" class="form-control" required>
+<option value="">Select Batch</option>
+<?php foreach($batches as $b): ?>
+<option value="<?= $b['BatchNo'] ?>" data-qty="<?= $b['QuantityAvailableKg'] ?>">
+<?= $b['BatchNo'] ?> (<?= $b['QuantityAvailableKg'] ?> Kg)
+</option>
+<?php endforeach; ?>
+</select>
+</div>
 
-                <!-- Date -->
-                <div class="mb-3">
-                    <label class="form-label fw-bold">Processing Date</label>
-                    <input type="date" name="ProcessingDate" class="form-control" required>
-                </div>
+<!-- AVAILABLE -->
+<div class="col-md-6 mb-3">
+<label>Available Raw Stock</label>
+<input type="text" id="available" class="form-control" readonly>
+</div>
 
-                <!-- Status -->
-                <div class="mb-3">
-                    <label class="form-label fw-bold">Status</label>
-                    <select name="Status" class="form-select">
-                        <option value="Pending">Pending</option>
-                        <option value="Completed">Completed</option>
-                    </select>
-                </div>
+<!-- INPUT -->
+<div class="col-md-6 mb-3">
+<label>Input Quantity (Kg)</label>
+<input type="number" step="0.01" name="input" id="input" class="form-control" required>
+</div>
 
-                <!-- Available Stock Info -->
-                <div class="alert alert-info">
-                    Available Raw Stock: <strong><?= $availableStock ?> Kg</strong>
-                </div>
+<!-- OUTPUT -->
+<div class="col-md-6 mb-3">
+<label>Output Quantity (Kg)</label>
+<input type="number" step="0.01" name="output" id="output" class="form-control" required>
+</div>
 
-                <!-- Buttons -->
-                <div class="d-flex justify-content-between">
-                    <a href="index.php" class="btn btn-secondary">⬅ Back</a>
-                    <button type="submit" id="submitBtn" class="btn btn-success">💾 Save</button>
-                </div>
-
-            </form>
-
-        </div>
-    </div>
+<!-- DATE -->
+<div class="col-md-6 mb-3">
+<label>Date</label>
+<input type="date" name="date" class="form-control" value="<?= date('Y-m-d') ?>" required>
+</div>
 
 </div>
 
-<!-- FRONTEND VALIDATION -->
+<div id="alertBox"></div>
+
+<button class="btn btn-success w-100">Process</button>
+
+</form>
+
+</div>
+</div>
+</div>
+
+<!-- ================= JS VALIDATION ================= -->
 <script>
-const availableStock = <?= $availableStock ?>;
+let batch = document.getElementById('batch');
+let availableInput = document.getElementById('available');
+let inputField = document.getElementById('input');
+let outputField = document.getElementById('output');
+let alertBox = document.getElementById('alertBox');
 
-const inputQty = document.getElementById("inputQty");
-const outputQty = document.getElementById("outputQty");
+/* SHOW AVAILABLE */
+batch.addEventListener('change', function(){
+    let selected = this.options[this.selectedIndex];
+    let qty = selected.getAttribute('data-qty') || 0;
+    availableInput.value = qty;
+});
 
-const rawError = document.getElementById("rawError");
-const processedError = document.getElementById("processedError");
-const submitBtn = document.getElementById("submitBtn");
+/* LIVE VALIDATION */
+function validateFields(){
 
-function validate() {
-    let input = parseFloat(inputQty.value) || 0;
-    let output = parseFloat(outputQty.value) || 0;
+    let available = parseFloat(availableInput.value) || 0;
+    let input = parseFloat(inputField.value) || 0;
+    let output = parseFloat(outputField.value) || 0;
 
-    let valid = true;
+    alertBox.innerHTML = "";
 
-    rawError.innerText = "";
-    processedError.innerText = "";
-
-    // Raw stock validation
-    if (input > availableStock) {
-        rawError.innerText = "❌ Exceeds available stock (" + availableStock + " Kg)";
-        valid = false;
+    if(input > available){
+        alertBox.innerHTML = "<div class='alert alert-danger'>❌ Input exceeds available stock</div>";
+        return false;
     }
 
-    // Process validation
-    if (output > input) {
-        processedError.innerText = "❌ Cannot exceed raw input";
-        valid = false;
+    if(output > input){
+        alertBox.innerHTML = "<div class='alert alert-warning'>⚠️ Output cannot exceed input</div>";
+        return false;
     }
 
-    if (input <= 0) {
-        rawError.innerText = "❌ Must be greater than 0";
-        valid = false;
-    }
-
-    if (output <= 0) {
-        processedError.innerText = "❌ Must be greater than 0";
-        valid = false;
-    }
-
-    submitBtn.disabled = !valid;
+    return true;
 }
 
-inputQty.addEventListener("input", validate);
-outputQty.addEventListener("input", validate);
+/* TRIGGER VALIDATION ON INPUT */
+inputField.addEventListener('input', validateFields);
+outputField.addEventListener('input', validateFields);
+
+/* FORM SUBMIT VALIDATION */
+document.getElementById('form').addEventListener('submit', function(e){
+    if(!validateFields()){
+        e.preventDefault();
+    }
+});
 </script>
+
+<?php
+/* ================= BACKEND ================= */
+if($_SERVER['REQUEST_METHOD'] == "POST"){
+
+$batch = $_POST['batch'];
+$input = floatval($_POST['input']);
+$output = floatval($_POST['output']);
+$date = $_POST['date'];
+
+/* CHECK STOCK */
+$stmt = $conn->prepare("SELECT QuantityAvailableKg FROM rawhoneystock WHERE BatchNo=?");
+$stmt->execute([$batch]);
+$available = $stmt->fetchColumn();
+
+if(!$available || $input > $available){
+    echo "<div class='container'><div class='alert alert-danger'>❌ Not enough stock</div></div>";
+    exit;
+}
+
+if($output > $input){
+    echo "<div class='container'><div class='alert alert-warning'>⚠️ Invalid output</div></div>";
+    exit;
+}
+
+try{
+
+$conn->beginTransaction();
+
+/* INSERT PROCESS */
+$conn->prepare("
+INSERT INTO processingbatch (BatchNo, InputQuantityKg, OutputQuantityKg, ProcessingDate, Status)
+VALUES (?, ?, ?, ?, 'Completed')
+")->execute([$batch, $input, $output, $date]);
+
+/* UPDATE RAW STOCK (IMPORTANT PART) */
+$conn->prepare("
+UPDATE rawhoneystock 
+SET QuantityAvailableKg = QuantityAvailableKg - ?
+WHERE BatchNo = ?
+")->execute([$input, $batch]);
+
+/* UPDATE PROCESSED STOCK */
+$stmt = $conn->prepare("SELECT ID FROM processedhoneystock WHERE BatchNo=?");
+$stmt->execute([$batch]);
+
+if($stmt->rowCount() > 0){
+
+    $conn->prepare("
+    UPDATE processedhoneystock
+    SET QuantityAvailableKg = QuantityAvailableKg + ?
+    WHERE BatchNo = ?
+    ")->execute([$output, $batch]);
+
+}else{
+
+    $conn->prepare("
+    INSERT INTO processedhoneystock (BatchNo, QuantityAvailableKg)
+    VALUES (?, ?)
+    ")->execute([$batch, $output]);
+}
+
+$conn->commit();
+
+header("Location:index.php");
+
+}catch(Exception $e){
+    $conn->rollBack();
+    echo "<div class='container'><div class='alert alert-danger'>❌ Error occurred</div></div>";
+}
+
+}
+?>
 
 <?php include("../../includes/footer.php"); ?>

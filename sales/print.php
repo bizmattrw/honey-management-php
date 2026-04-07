@@ -82,6 +82,7 @@ body { font-family: Arial; }
 <thead class="table-dark">
 <tr>
 <th>Product</th>
+<th>BatchNo</th>
 <th>Quantity</th>
 <th>Unit Price</th>
 <th>Total</th>
@@ -92,6 +93,7 @@ body { font-family: Arial; }
 <?php foreach($items as $i): ?>
 <tr>
 <td><?= $i['Name'] ?> (<?= $i['Size'] ?>)</td>
+<td><?= $i['BatchNo'] ?> </td>
 <td><?= $i['Quantity'] ?></td>
 <td><?= number_format($i['UnitPrice'],2) ?></td>
 <td><?= number_format($i['TotalPrice'],2) ?></td>
