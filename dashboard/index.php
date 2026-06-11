@@ -1,5 +1,14 @@
+<?php
+
+include("../includes/helpers.php");
+
+require_login();
+session_timeout(); // auto logout after inactivity
+?>
 <?php include("../config/db.php"); ?>
-<?php include("../includes/layout.php"); ?>
+<?php include("../includes/layout.php");
+
+?>
 
 <h3 class="mb-4">Dashboard</h3>
 

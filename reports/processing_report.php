@@ -7,9 +7,10 @@
 <input type="date" id="to">
 <button id="filterBtn" class="btn btn-primary">Filter</button>
 
-<table id="table" class="table table-bordered">
-<thead>
+<table id="table" class="table table-bordered table-striped mt-3">
+<thead class="table-dark">
 <tr>
+    <th>Batch No</th>
 <th>Input</th>
 <th>Output</th>
 <th>Loss</th>
@@ -19,6 +20,7 @@
 
 <tfoot>
 <tr>
+<th id="tBatchNo"></th>
 <th id="tInput"></th>
 <th id="tOutput"></th>
 <th id="tLoss"></th>
@@ -41,6 +43,7 @@ let table = $('#table').DataTable({
         }
     },
     columns:[
+        {data:'BatchNo'},
         {data:'Input'},
         {data:'Output'},
         {data:'Loss'},

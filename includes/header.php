@@ -159,6 +159,12 @@ body {
 
                 </ul>
             </li>
+            <!-- LOGOUT -->
+<li class="nav-item">
+    <a class="nav-link text-danger" href="<?= $base ?>logout.php">
+        <i class="fas fa-sign-out-alt"></i> Logout
+    </a>
+</li>
 
         </ul>
 

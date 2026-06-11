@@ -1,105 +1,183 @@
 <?php
 ob_start();
+
 include("../includes/layout.php");
 include("../config/db.php");
 
-/* SIZE → KG */
+/* ================= SIZE TO KG ================= */
+
 function convertToKg($size){
+
     $size = strtolower(trim($size));
+
     preg_match('/[\d.]+/', $size, $m);
+
     $v = floatval($m[0] ?? 0);
 
-    if(strpos($size,'kg')!==false) return $v;
-    if(strpos($size,'g')!==false) return $v/1000;
-    if(strpos($size,'ml')!==false) return ($v*1.4)/1000;
-    if(strpos($size,'l')!==false) return $v*1.4;
+    if(strpos($size,'kg') !== false) return $v;
+    if(strpos($size,'g') !== false) return $v / 1000;
+    if(strpos($size,'ml') !== false) return ($v * 1.4) / 1000;
+    if(strpos($size,'l') !== false) return $v * 1.4;
 
     return $v;
 }
 
-/* DATA */
-$customers = $conn->query("SELECT CustomerID, Name FROM customers")->fetchAll(PDO::FETCH_ASSOC);
+/* ================= CUSTOMERS ================= */
+
+$customers = $conn->query("
+SELECT CustomerID, Name
+FROM customers
+ORDER BY Name ASC
+")->fetchAll(PDO::FETCH_ASSOC);
+
+/* ================= INVENTORY ================= */
 
 $inventory = $conn->query("
-SELECT i.*, p.Name, p.Size
+SELECT 
+    i.*,
+    p.Name,
+    p.Size
 FROM inventory i
-JOIN products p ON i.ProductID = p.ProductID
+JOIN products p 
+ON i.ProductID = p.ProductID
 WHERE i.QuantityAvailable > 0
 ")->fetchAll(PDO::FETCH_ASSOC);
+
 ?>
 
-<div class="container mt-4">
+<div class="container-fluid mt-4">
 
-<div class="card shadow-lg">
+<div class="card shadow border-0">
+
 <div class="card-header bg-success text-white">
-    <h5>🛒 Sales (Batch + Payment)</h5>
+    <h4 class="mb-0">🛒 Sales Management</h4>
 </div>
 
 <div class="card-body">
 
-<form method="POST" id="form">
+<form method="POST" id="saleForm">
+
+<div class="row">
 
 <!-- CUSTOMER -->
-<div class="mb-3">
-<label>Customer</label>
+<div class="col-md-4 mb-3">
+<label class="form-label">Customer</label>
+
 <select name="customer" class="form-control" required>
-<option value="">Select</option>
+<option value="">Select Customer</option>
+
 <?php foreach($customers as $c): ?>
-<option value="<?= $c['CustomerID'] ?>"><?= $c['Name'] ?></option>
+
+<option value="<?= $c['CustomerID'] ?>">
+<?= htmlspecialchars($c['Name']) ?>
+</option>
+
 <?php endforeach; ?>
 </select>
 </div>
 
-<table class="table table-bordered">
+<!-- SALE DATE -->
+<div class="col-md-4 mb-3">
+<label class="form-label">Sale Date</label>
+
+<input 
+type="date" 
+name="sale_date"
+class="form-control"
+required
+value="<?= date('Y-m-d') ?>">
+</div>
+
+<!-- PAYMENT -->
+<div class="col-md-4 mb-3">
+<label class="form-label">Amount Paid</label>
+
+<input 
+type="number"
+step="0.01"
+name="paid"
+id="paid"
+class="form-control"
+oninput="calcBalance()">
+</div>
+
+</div>
+
+<!-- TABLE -->
+<div class="table-responsive">
+
+<table class="table table-bordered align-middle">
+
 <thead class="table-dark">
 <tr>
 <th>Product</th>
 <th>Batch</th>
-<th>Available KG</th>
+<th>Available</th>
 <th>Qty</th>
 <th>Size</th>
 <th>Used KG</th>
-<th>Price</th>
+<th>Unit Price</th>
 <th>Total</th>
-<th></th>
+<th>Action</th>
 </tr>
 </thead>
 
 <tbody id="rows"></tbody>
+
 </table>
 
-<button type="button" class="btn btn-primary mb-3" onclick="addRow()">➕ Add Item</button>
+</div>
+
+<button 
+type="button"
+class="btn btn-primary mb-3"
+onclick="addRow()">
+➕ Add Item
+</button>
 
 <hr>
 
 <div class="row">
-<div class="col-md-4">
-<label>Total</label>
-<input type="text" id="total" class="form-control" readonly>
+
+<div class="col-md-6">
+<label class="form-label">Grand Total</label>
+
+<input 
+type="text"
+id="grandTotal"
+class="form-control"
+readonly>
 </div>
 
-<div class="col-md-4">
-<label>Amount Paid</label>
-<input type="number" name="paid" id="paid" class="form-control" oninput="calcBalance()">
+<div class="col-md-6">
+<label class="form-label">Balance</label>
+
+<input 
+type="text"
+id="balance"
+class="form-control"
+readonly>
 </div>
 
-<div class="col-md-4">
-<label>Balance</label>
-<input type="text" id="balance" class="form-control" readonly>
-</div>
 </div>
 
 <br>
 
-<button class="btn btn-success w-100">💰 Save Sale</button>
+<button class="btn btn-success w-100">
+💾 Save Sale
+</button>
 
 </form>
+
 </div>
 </div>
 </div>
 
 <script>
+
 let inventory = <?= json_encode($inventory) ?>;
+
+/* ================= ADD ROW ================= */
 
 function addRow(){
 
@@ -107,215 +185,480 @@ let row = `
 <tr>
 
 <td>
-<select name="product[]" class="form-control" onchange="loadBatch(this)">
-<option value="">Select</option>
-${[...new Set(inventory.map(i=>i.ProductID))].map(pid=>{
-let p = inventory.find(i=>i.ProductID==pid);
-return `<option value="${pid}">${p.Name}</option>`;
+<select 
+name="product[]" 
+class="form-control"
+onchange="loadBatch(this)"
+required>
+
+<option value="">Select Product</option>
+
+${[...new Set(inventory.map(i => i.ProductID))].map(pid => {
+
+let p = inventory.find(i => i.ProductID == pid);
+
+return `
+<option value="${pid}">
+${p.Name} (${p.Size})
+</option>
+`;
+
 }).join('')}
+
 </select>
 </td>
 
 <td>
-<select name="batch[]" class="form-control" onchange="updateRow(this)"></select>
+<select 
+name="batch[]" 
+class="form-control"
+onchange="updateRow(this)"
+required>
+
+<option value="">Select Batch</option>
+
+</select>
 </td>
 
-<td><input class="form-control available" readonly></td>
+<td>
+<input class="form-control available" readonly>
+</td>
 
-<td><input name="qty[]" class="form-control qty" oninput="calculate()"></td>
+<td>
+<input 
+type="number"
+name="qty[]" 
+class="form-control qty"
+min="1"
+oninput="calculate()"
+required>
 
-<td><input class="form-control size" readonly></td>
+<small class="text-danger validation-msg"></small>
+</td>
 
-<td><input class="form-control usedkg" readonly></td>
+<td>
+<input class="form-control size" readonly>
+</td>
 
-<td><input name="price[]" class="form-control price" oninput="calculate()"></td>
+<td>
+<input class="form-control usedkg" readonly>
+</td>
 
-<td><input class="form-control total" readonly></td>
+<td>
+<input 
+type="number"
+step="0.01"
+name="price[]" 
+class="form-control price"
+oninput="calculate()"
+required>
+</td>
 
-<td><button type="button" onclick="this.closest('tr').remove(); calculate()" class="btn btn-danger">X</button></td>
+<td>
+<input class="form-control total" readonly>
+</td>
+
+<td>
+<button 
+type="button"
+class="btn btn-danger"
+onclick="removeRow(this)">
+X
+</button>
+</td>
 
 </tr>
 `;
 
-document.getElementById('rows').insertAdjacentHTML('beforeend', row);
+document.getElementById('rows')
+.insertAdjacentHTML('beforeend', row);
+
 }
 
-function loadBatch(sel){
-let pid = sel.value;
-let batch = sel.closest('tr').querySelector('[name="batch[]"]');
+/* ================= REMOVE ROW ================= */
 
-batch.innerHTML = '<option value="">Select</option>';
+function removeRow(btn){
 
-inventory.filter(i=>i.ProductID==pid).forEach(i=>{
-batch.innerHTML += `<option value="${i.BatchNo}" data-qty="${i.QuantityAvailable}" data-size="${i.Size}">
-${i.BatchNo}
-</option>`;
-});
-}
-
-function updateRow(sel){
-let opt = sel.options[sel.selectedIndex];
-let row = sel.closest('tr');
-
-row.querySelector('.available').value = opt.dataset.qty;
-row.querySelector('.size').value = opt.dataset.size;
+btn.closest('tr').remove();
 
 calculate();
+
 }
+
+/* ================= LOAD BATCH ================= */
+
+function loadBatch(sel){
+
+let pid = sel.value;
+
+let batch = sel.closest('tr')
+.querySelector('[name="batch[]"]');
+
+batch.innerHTML = `
+<option value="">Select Batch</option>
+`;
+
+inventory
+.filter(i => i.ProductID == pid)
+.forEach(i => {
+
+batch.innerHTML += `
+<option 
+value="${i.BatchNo}"
+data-qty="${i.QuantityAvailable}"
+data-size="${i.Size}">
+${i.BatchNo}
+</option>
+`;
+
+});
+
+}
+
+/* ================= UPDATE ROW ================= */
+
+function updateRow(sel){
+
+let opt = sel.options[sel.selectedIndex];
+
+let row = sel.closest('tr');
+
+/* AVAILABLE ITEMS */
+row.querySelector('.available').dataset.value =
+opt.dataset.qty;
+
+row.querySelector('.available').value =
+opt.dataset.qty + " Items";
+
+/* PRODUCT SIZE */
+row.querySelector('.size').value =
+opt.dataset.size;
+
+calculate();
+
+}
+
+/* ================= CONVERT SIZE ================= */
 
 function convert(size){
+
 size = size.toLowerCase();
-let v = parseFloat(size)||0;
+
+let match = size.match(/[\d.]+/);
+
+let v = parseFloat(match ? match[0] : 0);
 
 if(size.includes('kg')) return v;
-if(size.includes('g')) return v/1000;
-if(size.includes('ml')) return (v*1.4)/1000;
-if(size.includes('l')) return v*1.4;
+if(size.includes('g')) return v / 1000;
+if(size.includes('ml')) return (v * 1.4) / 1000;
+if(size.includes('l')) return v * 1.4;
 
 return v;
+
 }
+
+/* ================= CALCULATE ================= */
 
 function calculate(){
 
-let total = 0;
+let grandTotal = 0;
 
-document.querySelectorAll('#rows tr').forEach(r=>{
+document.querySelectorAll('#rows tr')
+.forEach(r => {
 
-let qty = parseFloat(r.querySelector('.qty').value)||0;
-let price = parseFloat(r.querySelector('.price').value)||0;
+let qty = parseFloat(
+r.querySelector('.qty').value
+) || 0;
 
-let kg = convert(r.querySelector('.size').value);
-let used = qty * kg;
+let price = parseFloat(
+r.querySelector('.price').value
+) || 0;
 
-r.querySelector('.usedkg').value = used.toFixed(2);
+/* USED KG ONLY FOR DISPLAY */
+let sizeKg = convert(
+r.querySelector('.size').value
+);
 
-let line = qty * price;
-r.querySelector('.total').value = line.toFixed(2);
+let usedKg = qty * sizeKg;
 
-total += line;
+r.querySelector('.usedkg').value =
+usedKg.toFixed(2);
+
+/* LINE TOTAL */
+let total = qty * price;
+
+r.querySelector('.total').value =
+total.toFixed(2);
+
+grandTotal += total;
 
 /* VALIDATION */
-let avail = parseFloat(r.querySelector('.available').value)||0;
 
-if(used > avail){
-r.querySelector('.qty').style.border="2px solid red";
+let available = parseFloat(
+r.querySelector('.available').dataset.value
+) || 0;
+
+let qtyInput = r.querySelector('.qty');
+let msg = r.querySelector('.validation-msg');
+
+if(qty > available){
+
+qtyInput.style.border = "2px solid red";
+
+msg.innerHTML = `
+Entered quantity exceeds available stock!
+Available: ${available} items
+`;
+
 }else{
-r.querySelector('.qty').style.border="";
+
+qtyInput.style.border = "";
+msg.innerHTML = "";
+
 }
 
 });
 
-document.getElementById('total').value = total.toFixed(2);
+document.getElementById('grandTotal').value =
+grandTotal.toFixed(2);
+
 calcBalance();
+
 }
+
+/* ================= BALANCE ================= */
 
 function calcBalance(){
-let total = parseFloat(document.getElementById('total').value)||0;
-let paid = parseFloat(document.getElementById('paid').value)||0;
 
-document.getElementById('balance').value = (total - paid).toFixed(2);
+let total = parseFloat(
+document.getElementById('grandTotal').value
+) || 0;
+
+let paid = parseFloat(
+document.getElementById('paid').value
+) || 0;
+
+document.getElementById('balance').value =
+(total - paid).toFixed(2);
+
 }
+
 </script>
+<script>
+    document.getElementById('saleForm')
+.addEventListener('submit', function(e){
 
+let hasError = false;
+
+document.querySelectorAll('#rows tr')
+.forEach(r => {
+
+let qty = parseFloat(
+r.querySelector('.qty').value
+) || 0;
+
+let available = parseFloat(
+r.querySelector('.available').dataset.value
+) || 0;
+
+if(qty > available){
+hasError = true;
+}
+
+});
+
+if(hasError){
+
+e.preventDefault();
+
+alert(
+'Please fix quantities that exceed available stock.'
+);
+
+}
+
+});
+</script>
 <?php
-if($_SERVER['REQUEST_METHOD']=="POST"){
 
-$customer = $_POST['customer'];
-$paid = $_POST['paid'] ?? 0;
+/* ================= SAVE SALE ================= */
 
-$qtys = $_POST['qty'] ?? [];
-$prices = $_POST['price'] ?? [];
-$products = $_POST['product'] ?? [];
-$batches = $_POST['batch'] ?? [];
+if($_SERVER['REQUEST_METHOD'] == "POST"){
 
 try{
+
+$customer = $_POST['customer'];
+$saleDate = $_POST['sale_date'];
+$paid = $_POST['paid'] ?? 0;
+
+$products = $_POST['product'] ?? [];
+$batches = $_POST['batch'] ?? [];
+$qtys = $_POST['qty'] ?? [];
+$prices = $_POST['price'] ?? [];
 
 $conn->beginTransaction();
 
 $total = 0;
 
-/* CREATE SALE FIRST */
+/* CREATE SALE */
+
 $conn->prepare("
-INSERT INTO sales(CustomerID, SaleDate, TotalAmount, PaymentStatus)
-VALUES(?, NOW(), 0, 'Pending')
-")->execute([$customer]);
+INSERT INTO sales
+(CustomerID, SaleDate, TotalAmount, PaymentStatus)
+VALUES(?,?,0,'Pending')
+")->execute([
+
+$customer,
+$saleDate
+
+]);
 
 $saleID = $conn->lastInsertId();
 
 /* LOOP ITEMS */
-for($i=0;$i<count($qtys);$i++){
 
-$qty = $qtys[$i];
-$price = $prices[$i];
+for($i = 0; $i < count($qtys); $i++){
+
 $product = $products[$i];
 $batch = $batches[$i];
 
-/* GET SIZE */
-$stmt = $conn->prepare("SELECT Size FROM products WHERE ProductID=?");
-$stmt->execute([$product]);
-$size = $stmt->fetchColumn();
+$qty = floatval($qtys[$i]);
+$price = floatval($prices[$i]);
 
-/* CONVERT */
-$kg = convertToKg($size);
-$usedKg = $qty * $kg;
+/* AVAILABLE STOCK */
 
-/* CHECK STOCK */
 $stmt = $conn->prepare("
-SELECT QuantityAvailable FROM inventory
-WHERE ProductID=? AND BatchNo=?
+SELECT QuantityAvailable
+FROM inventory
+WHERE ProductID=? 
+AND BatchNo=?
 ");
-$stmt->execute([$product,$batch]);
-$avail = $stmt->fetchColumn();
 
-if($usedKg > $avail){
-throw new Exception("Stock exceeded for batch $batch");
+$stmt->execute([$product, $batch]);
+
+$available = floatval(
+$stmt->fetchColumn()
+);
+
+/* VALIDATE */
+
+if($qty > $available){
+
+throw new Exception(
+"Stock exceeded for batch: $batch"
+);
+
 }
 
 /* INSERT DETAILS */
+
 $conn->prepare("
-INSERT INTO saledetails(SaleID, ProductID,BatchNo, Quantity, UnitPrice, TotalPrice)
+INSERT INTO saledetails
+(SaleID, ProductID, BatchNo, Quantity, UnitPrice, TotalPrice)
 VALUES(?,?,?,?,?,?)
 ")->execute([
-$saleID,$product,$batches[$i],$qty,$price,$qty*$price
+
+$saleID,
+$product,
+$batch,
+$qty,
+$price,
+($qty * $price)
+
 ]);
 
-/* DEDUCT STOCK */
+/* UPDATE STOCK */
+
 $conn->prepare("
 UPDATE inventory
-SET QuantityAvailable = QuantityAvailable - ?
-WHERE ProductID=? AND BatchNo=?
-")->execute([$usedKg,$product,$batch]);
+SET QuantityAvailable =
+QuantityAvailable - ?
+WHERE ProductID=? 
+AND BatchNo=?
+")->execute([
 
-$total += $qty*$price;
+$qty,
+$product,
+$batch
+
+]);
+
+$total += ($qty * $price);
+
 }
 
-/* UPDATE SALE TOTAL */
-$conn->prepare("UPDATE sales SET TotalAmount=? WHERE SaleID=?")
-->execute([$total,$saleID]);
+/* UPDATE SALE */
 
-/* INSERT PAYMENT */
-if($paid > 0){
 $conn->prepare("
-INSERT INTO payments(SaleID, AmountPaid, PaymentDate, PaymentMethod)
-VALUES(?, ?, NOW(), 'Cash')
-")->execute([$saleID,$paid]);
+UPDATE sales
+SET TotalAmount=?
+WHERE SaleID=?
+")->execute([
+
+$total,
+$saleID
+
+]);
+
+/* PAYMENT */
+
+if($paid > 0){
+
+$conn->prepare("
+INSERT INTO payments
+(SaleID, AmountPaid, PaymentDate, PaymentMethod)
+VALUES(?, ?, ?, 'Cash')
+")->execute([
+
+$saleID,
+$paid,
+$saleDate
+
+]);
+
 }
 
-/* UPDATE STATUS */
-$status = ($paid >= $total) ? 'Paid' : ($paid > 0 ? 'Partial' : 'Pending');
+/* PAYMENT STATUS */
 
-$conn->prepare("UPDATE sales SET PaymentStatus=? WHERE SaleID=?")
-->execute([$status,$saleID]);
+$status = ($paid >= $total)
+? 'Paid'
+: (($paid > 0) ? 'Partial' : 'Pending');
+
+$conn->prepare("
+UPDATE sales
+SET PaymentStatus=?
+WHERE SaleID=?
+")->execute([
+
+$status,
+$saleID
+
+]);
 
 $conn->commit();
 
-header("Location:index.php");
+echo "
+<script>
+alert('✅ Sale saved successfully!');
+window.location='index.php';
+</script>
+";
 
 }catch(Exception $e){
+
 $conn->rollBack();
-echo "<div class='alert alert-danger'>❌ ".$e->getMessage()."</div>";
+
+echo "
+<div class='container mt-3'>
+<div class='alert alert-danger'>
+❌ ".$e->getMessage()."
+</div>
+</div>
+";
+
 }
 
 }
-include('../includes/footer.php')
+
+include("../includes/footer.php");
 ?>

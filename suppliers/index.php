@@ -1,8 +1,14 @@
 <?php
-include("../config/db.php");
+include("../includes/helpers.php");
 
+require_login();
+session_timeout(); // auto logout after inactivity
+
+include("../config/db.php");
+check_csrf();
 // ================= CREATE =================
 if (isset($_POST['action']) && $_POST['action'] == "create") {
+    
     $stmt = $conn->prepare("
         INSERT INTO suppliers 
         (Name, Phone, provinceCode, districtCode, sectorCode, cellCode, villageCode)
@@ -191,6 +197,7 @@ if (isset($_GET['edit'])) {
                     <div class="modal-body">
 
                         <form id="createForm">
+                             <input type="hidden" name="_csrf" value="<?= csrf_token() ?>">
 
                             <input type="text" name="Name" class="form-control mb-2" placeholder="Name" required>
                             <input type="text" name="Phone" class="form-control mb-2" placeholder="Phone">
@@ -229,7 +236,7 @@ if (isset($_GET['edit'])) {
 
                     <div class="modal-body">
                         <form method="post">
-
+ <input type="hidden" name="_csrf" value="<?= csrf_token() ?>">
                             <div class="modal-header">
                                 <h5>Edit Supplier</h5>
                             </div>

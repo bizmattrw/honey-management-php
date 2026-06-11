@@ -31,7 +31,7 @@ function generateBatchNo($rawID, $supplierID){
 $rawID = $conn->lastInsertId();
 
 /* GENERATE BATCH */
-$batchNo = generateBatchNo($rawID, $_POST['supplierID']);
+$batchNo = generateBatchNo($rawID, $_POST['SupplierID']);
 
 /* UPDATE RECORD WITH BATCH */
 $conn->prepare("UPDATE rawhoney SET BatchNo=? WHERE RawHoneyID=?")

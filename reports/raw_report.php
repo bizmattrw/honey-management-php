@@ -32,6 +32,7 @@
     <th>Quantity (Kg)</th>
     <th>Price/Kg</th>
     <th>Total Amount</th>
+    <th>Batch No</th>
    
     <th>Date</th>
 </tr>
@@ -75,12 +76,16 @@ let table = $('#table').DataTable({
         { data: 'qty' },
         { data: 'price' },    
         { data: 'amount' }, 
+        { data: 'BatchNo' }, 
         { data: 'date' }
     ],
 
     dom: 'Blfrtip',
     buttons: ['excel','pdf'],
-
+lengthMenu: [
+  [10, 25, 50, 100, 1000, -1],
+  [10, 25, 50, 100, 1000, "All"]
+],
   drawCallback: function(settings){
     let json = settings.json;
 
